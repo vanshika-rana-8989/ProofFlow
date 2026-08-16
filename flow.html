@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ProofFlow AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F4EE;
+    --surface:#FFFFFF;
+    --ink:#171A21;
+    --ink-soft:#5B5F6B;
+    --line:#DFDACB;
+    --accent:#2A4FB0;
+    --accent-soft:#E8EDFB;
+    --verified:#1E8E5A;
+    --verified-soft:#E6F5ED;
+    --partial:#B9740B;
+    --partial-soft:#FBF0DC;
+    --rejected:#C0392F;
+    --rejected-soft:#FCEAE8;
+    --shadow: 0 1px 2px rgba(23,26,33,0.04), 0 8px 24px -12px rgba(23,26,33,0.18);
+    --radius: 14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', -apple-system, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 64px 64px;
+    opacity:0.35;
+    pointer-events:none;
+    z-index:0;
+  }
+  h1,h2,h3,.display{ font-family:'Space Grotesk', sans-serif; letter-spacing:-0.01em; }
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+  #app{ position:relative; z-index:1; display:flex; min-height:100vh; }
+  button{ font-family:inherit; cursor:pointer; }
+  a{ color:inherit; }
+  ::selection{ background:var(--accent-soft); }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    width:236px; flex-shrink:0;
+    background:var(--surface);
+    border-right:1px solid var(--line);
+    padding:28px 18px;
+    display:flex; flex-direction:column; gap:28px;
+    position:sticky; top:0; height:100vh;
+  }
+  .brand{ display:flex; align-items:center; gap:10px; padding:0 6px; }
+  .brand-mark{
+    width:34px; height:34px; border-radius:9px;
+    background:var(--ink);
+    display:flex; align-items:center; justify-content:center;
+    position:relative;
+  }
+  .brand-mark svg{ width:18px; height:18px; }
+  .brand-name{ font-weight:700; font-size:15.5px; line-height:1.1; }
+  .brand-sub{ font-size:10.5px; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace; letter-spacing:0.04em; text-transform:uppercase; }
+
+  .nav{ display:flex; flex-direction:column; gap:2px; }
+  .nav-item{
+    display:flex; align-items:center; gap:10px;
+    padding:9px 10px; border-radius:9px;
+    font-size:13.5px; font-weight:500; color:var(--ink-soft);
+    border:none; background:transparent; text-align:left; width:100%;
+  }
+  .nav-item svg{ width:16px; height:16px; flex-shrink:0; }
+  .nav-item:hover{ background:var(--paper); color:var(--ink); }
+  .nav-item.active{ background:var(--accent-soft); color:var(--accent); font-weight:600; }
+
+  .sidebar-foot{ margin-top:auto; padding:12px; border-radius:10px; background:var(--paper); border:1px dashed var(--line); font-size:11.5px; color:var(--ink-soft); line-height:1.5; }
+
+  /* ---------- Main ---------- */
+  .main{ flex:1; min-width:0; padding:32px 40px 80px; }
+  .topline{ display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; gap:16px; flex-wrap:wrap; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--accent); font-weight:600; margin-bottom:6px; }
+  .page-title{ font-size:26px; font-weight:700; margin:0; }
+  .page-sub{ color:var(--ink-soft); font-size:13.5px; margin-top:6px; max-width:560px; }
+
+  .btn{
+    display:inline-flex; align-items:center; gap:7px;
+    padding:10px 16px; border-radius:10px;
+    font-size:13.5px; font-weight:600;
+    border:1px solid transparent; transition:transform .08s ease, box-shadow .15s ease;
+  }
+  .btn:active{ transform:scale(0.98); }
+  .btn svg{ width:15px; height:15px; }
+  .btn-primary{ background:var(--ink); color:#fff; }
+  .btn-primary:hover{ box-shadow:var(--shadow); }
+  .btn-accent{ background:var(--accent); color:#fff; }
+  .btn-accent:hover{ box-shadow:var(--shadow); }
+  .btn-ghost{ background:var(--surface); color:var(--ink); border:1px solid var(--line); }
+  .btn-ghost:hover{ border-color:var(--ink); }
+  .btn:disabled{ opacity:0.45; cursor:not-allowed; transform:none; }
+
+  /* ---------- Cards / grid ---------- */
+  .card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); }
+  .stat-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:26px; }
+  .stat-card{ padding:18px 18px 16px; }
+  .stat-label{ font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.06em; font-family:'IBM Plex Mono',monospace; }
+  .stat-value{ font-size:28px; font-weight:700; margin-top:8px; font-family:'Space Grotesk',sans-serif; }
+  .stat-bar{ height:4px; border-radius:2px; background:var(--line); margin-top:12px; overflow:hidden; }
+  .stat-bar > div{ height:100%; border-radius:2px; }
+
+  .section-head{ display:flex; align-items:center; justify-content:space-between; margin:32px 0 14px; }
+  .section-head h2{ font-size:15px; font-weight:700; margin:0; }
+
+  .task-row{ display:flex; align-items:center; gap:16px; padding:15px 18px; border-bottom:1px solid var(--line); }
+  .task-row:last-child{ border-bottom:none; }
+  .task-row:hover{ background:var(--paper); cursor:pointer; }
+  .task-title{ font-weight:600; font-size:14px; }
+  .task-meta{ font-size:11.5px; color:var(--ink-soft); margin-top:3px; font-family:'IBM Plex Mono',monospace; }
+  .spacer{ flex:1; }
+
+  .badge{ display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:100px; font-size:11px; font-weight:700; font-family:'IBM Plex Mono',monospace; letter-spacing:0.02em; white-space:nowrap; }
+  .badge-dot{ width:6px; height:6px; border-radius:50%; }
+  .badge.status-VERIFIED{ background:var(--verified-soft); color:var(--verified); }
+  .badge.status-VERIFIED .badge-dot{ background:var(--verified); }
+  .badge.status-PARTIALLY_VERIFIED{ background:var(--partial-soft); color:var(--partial); }
+  .badge.status-PARTIALLY_VERIFIED .badge-dot{ background:var(--partial); }
+  .badge.status-REJECTED{ background:var(--rejected-soft); color:var(--rejected); }
+  .badge.status-REJECTED .badge-dot{ background:var(--rejected); }
+  .badge.status-ACTIVE{ background:var(--accent-soft); color:var(--accent); }
+  .badge.status-ACTIVE .badge-dot{ background:var(--accent); }
+
+  .score-mono{ font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:13px; }
+
+  /* ---------- empty state ---------- */
+  .empty{ padding:48px 24px; text-align:center; color:var(--ink-soft); }
+  .empty svg{ width:30px; height:30px; margin-bottom:10px; opacity:0.5; }
+  .empty .empty-title{ color:var(--ink); font-weight:600; font-size:14px; margin-bottom:4px; }
+  .empty .empty-sub{ font-size:12.5px; max-width:340px; margin:0 auto; }
+
+  /* ---------- Forms ---------- */
+  .field{ margin-bottom:16px; }
+  .field label{ display:block; font-size:12.5px; font-weight:600; margin-bottom:6px; }
+  .field input, .field textarea{
+    width:100%; padding:10px 12px; border-radius:9px; border:1px solid var(--line);
+    background:var(--surface); font-family:inherit; font-size:13.5px; color:var(--ink);
+  }
+  .field input:focus, .field textarea:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  .field textarea{ resize:vertical; min-height:70px; }
+  .field-row{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+
+  .req-card{ display:flex; gap:12px; align-items:flex-start; padding:13px 14px; border:1px solid var(--line); border-radius:11px; margin-bottom:9px; background:var(--surface); }
+  .req-type{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--accent); background:var(--accent-soft); padding:3px 7px; border-radius:5px; display:inline-block; margin-bottom:5px; }
+  .req-desc{ font-size:13.5px; font-weight:500; }
+  .req-remove{ border:none; background:none; color:var(--ink-soft); padding:4px; border-radius:6px; flex-shrink:0; }
+  .req-remove:hover{ background:var(--rejected-soft); color:var(--rejected); }
+
+  /* ---------- Evidence upload ---------- */
+  .dropzone{
+    border:1.5px dashed var(--line); border-radius:14px; padding:34px 20px;
+    text-align:center; background:var(--surface); transition:border-color .15s, background .15s;
+  }
+  .dropzone.drag{ border-color:var(--accent); background:var(--accent-soft); }
+  .dropzone svg{ width:26px; height:26px; color:var(--ink-soft); margin-bottom:8px; }
+  .dropzone .dz-title{ font-weight:600; font-size:13.5px; }
+  .dropzone .dz-sub{ font-size:12px; color:var(--ink-soft); margin-top:4px; }
+  .evidence-preview{ display:flex; gap:14px; align-items:center; padding:14px; }
+  .evidence-preview img{ width:88px; height:64px; object-fit:cover; border-radius:8px; border:1px solid var(--line); }
+
+  /* ---------- Agent activity ---------- */
+  .agent-list{ display:flex; flex-direction:column; gap:2px; }
+  .agent-item{ display:flex; align-items:flex-start; gap:11px; padding:10px 4px; border-bottom:1px solid var(--line); }
+  .agent-item:last-child{ border-bottom:none; }
+  .agent-icon{ width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
+  .agent-icon.pending{ background:var(--line); }
+  .agent-icon.running{ background:var(--accent-soft); }
+  .agent-icon.done{ background:var(--verified-soft); }
+  .agent-icon.warn{ background:var(--partial-soft); }
+  .agent-icon.fail{ background:var(--rejected-soft); }
+  .agent-icon svg{ width:12px; height:12px; }
+  .agent-name{ font-size:13px; font-weight:600; }
+  .agent-msg{ font-size:12px; color:var(--ink-soft); margin-top:1px; }
+  .spin{ animation:spin 0.9s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* ---------- Result stamp card ---------- */
+  .result-card{ padding:26px; position:relative; overflow:hidden; }
+  .result-top{ display:flex; align-items:center; gap:22px; flex-wrap:wrap; }
+  .stamp{
+    width:112px; height:112px; border-radius:50%;
+    border:3px solid currentColor; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; transform:rotate(-8deg); flex-shrink:0;
+    font-family:'Space Grotesk',sans-serif;
+  }
+  .stamp::before{ content:""; position:absolute; }
+  .stamp .stamp-status{ font-size:11px; font-weight:700; letter-spacing:0.03em; text-align:center; line-height:1.25; padding:0 8px; }
+  .stamp .stamp-score{ font-size:26px; font-weight:700; margin-top:2px; }
+  .stamp.VERIFIED{ color:var(--verified); }
+  .stamp.PARTIALLY_VERIFIED{ color:var(--partial); }
+  .stamp.REJECTED{ color:var(--rejected); }
+
+  .req-result-list{ flex:1; min-width:240px; display:flex; flex-direction:column; gap:7px; }
+  .req-result{ display:flex; align-items:center; gap:9px; font-size:13px; }
+  .req-result svg{ width:15px; height:15px; flex-shrink:0; }
+  .req-result.pass{ color:var(--ink); }
+  .req-result.pass svg{ color:var(--verified); }
+  .req-result.fail svg{ color:var(--rejected); }
+  .req-result.partial svg{ color:var(--partial); }
+  .req-result .rr-detail{ color:var(--ink-soft); font-family:'IBM Plex Mono',monospace; font-size:11.5px; margin-left:auto; padding-left:10px; }
+
+  .confidence-line{ font-size:11.5px; color:var(--ink-soft); margin-top:16px; font-family:'IBM Plex Mono',monospace; }
+
+  .explain-box{ margin-top:18px; padding-top:18px; border-top:1px solid var(--line); }
+  .explain-box h4{ font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-soft); margin:0 0 6px; font-family:'IBM Plex Mono',monospace; }
+  .explain-box p{ font-size:13.5px; line-height:1.55; margin:0; }
+  .recovery-box{ margin-top:14px; padding:14px 16px; background:var(--partial-soft); border-radius:11px; border:1px solid #eaceA0; }
+  .recovery-box h4{ font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--partial); margin:0 0 6px; font-family:'IBM Plex Mono',monospace; }
+  .recovery-box p{ font-size:13.5px; line-height:1.5; margin:0; color:#5b4413; }
+
+  /* ---------- Timeline ---------- */
+  .timeline{ position:relative; padding-left:28px; }
+  .timeline::before{ content:""; position:absolute; left:9px; top:6px; bottom:6px; width:1.5px; background:var(--line); }
+  .tl-item{ position:relative; padding-bottom:22px; }
+  .tl-item:last-child{ padding-bottom:0; }
+  .tl-dot{ position:absolute; left:-28px; top:2px; width:19px; height:19px; border-radius:50%; border:2px solid var(--surface); display:flex; align-items:center; justify-content:center; }
+  .tl-dot svg{ width:10px; height:10px; }
+  .tl-head{ display:flex; align-items:center; gap:10px; font-size:13px; font-weight:600; }
+  .tl-body{ font-size:12px; color:var(--ink-soft); margin-top:3px; }
+  .tl-recovery{ margin-top:8px; margin-left:2px; padding:8px 11px; background:var(--paper); border-radius:8px; border:1px solid var(--line); font-size:12px; color:var(--ink-soft); font-style:italic; }
+
+  /* ---------- misc ---------- */
+  .two-col{ display:grid; grid-template-columns:1.6fr 1fr; gap:20px; align-items:start; }
+  .pad{ padding:20px; }
+  .divider{ height:1px; background:var(--line); margin:20px 0; }
+  .banner{ padding:11px 14px; border-radius:10px; font-size:12.5px; display:flex; align-items:center; gap:9px; margin-bottom:16px; }
+  .banner-error{ background:var(--rejected-soft); color:#8c2a22; }
+  .banner-info{ background:var(--accent-soft); color:var(--accent); }
+  .banner svg{ width:15px; height:15px; flex-shrink:0; }
+  .link-btn{ background:none; border:none; color:var(--accent); font-weight:600; font-size:12.5px; padding:0; }
+  .demo-chip{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; text-transform:uppercase; letter-spacing:0.05em; background:var(--ink); color:#fff; padding:3px 8px; border-radius:5px; margin-left:8px; vertical-align:middle; }
+  .hidden{ display:none !important; }
+  .attempt-thumb{ width:100%; height:150px; object-fit:cover; border-radius:10px; border:1px solid var(--line); margin-bottom:12px; }
+  @media (max-width:900px){
+    .stat-grid{ grid-template-columns:repeat(2,1fr); }
+    .two-col{ grid-template-columns:1fr; }
+    .sidebar{ display:none; }
+    .main{ padding:20px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <nav class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">ProofFlow</div>
+        <div class="brand-sub">AI Proof-of-Work</div>
+      </div>
+    </div>
+    <div class="nav" id="nav">
+      <button class="nav-item" data-view="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Dashboard</button>
+      <button class="nav-item" data-view="create"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Create Task</button>
+      <button class="nav-item" data-view="tasks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg>Tasks</button>
+    </div>
+    <div class="sidebar-foot">Verification pipeline runs live Anthropic API calls (planning + vision). No key setup needed in this environment.</div>
+  </nav>
+  <main class="main" id="main"></main>
+</div>
+
+<script>
+/* ============================= STATE / STORAGE ============================= */
+const API_URL = "https://api.anthropic.com/v1/messages";
+const MODEL = "claude-sonnet-4-6";
+
+let INDEX = []; // [{id,title,location,status,score,updatedAt}]
+let CURRENT_TASK = null; // full task object currently open
+let VIEW = "dashboard";
+let DRAFT_REQS = []; // requirements being edited on create-task screen
+
+async function loadIndex(){
+  try{
+    const r = await window.storage.get('tasks-index', false);
+    INDEX = r ? JSON.parse(r.value) : [];
+  }catch(e){ INDEX = []; }
+}
+async function saveIndex(){
+  await window.storage.set('tasks-index', JSON.stringify(INDEX), false);
+}
+async function loadTask(id){
+  try{
+    const r = await window.storage.get('task:'+id, false);
+    return r ? JSON.parse(r.value) : null;
+  }catch(e){ return null; }
+}
+async function saveTask(task){
+  task.updatedAt = Date.now();
+  await window.storage.set('task:'+task.id, JSON.stringify(task), false);
+  const idx = INDEX.findIndex(t=>t.id===task.id);
+  const summary = { id:task.id, title:task.title, location:task.location, status:task.status, score:task.score, updatedAt:task.updatedAt, isDemo:!!task.isDemo };
+  if(idx>=0) INDEX[idx]=summary; else INDEX.unshift(summary);
+  await saveIndex();
+}
+
+function uid(prefix){ return prefix+'_'+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4); }
+
+/* ============================= ICONS ============================= */
+const ICON = {
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>',
+  dash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>',
+  spark:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg>',
+  upload:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>',
+  alert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>',
+  empty:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg>'
+};
+
+/* ============================= ANTHROPIC API HELPERS ============================= */
+async function callClaude(content, system, max_tokens=1100){
+  const res = await fetch(API_URL, {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens,
+      system,
+      messages: [{ role:"user", content }]
+    })
+  });
+  if(!res.ok){
+    let detail = '';
+    try{ detail = (await res.json()).error?.message || ''; }catch(e){}
+    throw new Error("AI request failed ("+res.status+") "+detail);
+  }
+  const data = await res.json();
+  const text = (data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n");
+  if(!text) throw new Error("AI returned an empty response");
+  return text;
+}
+function extractJSON(text){
+  let cleaned = text.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  if(firstBrace>=0 && lastBrace>firstBrace) cleaned = cleaned.slice(firstBrace, lastBrace+1);
+  try{ return JSON.parse(cleaned); }
+  catch(e){ throw new Error("Could not parse AI response as JSON: "+e.message); }
+}
+
+/* ============================= AGENT 1 — PLANNER ============================= */
+async function plannerAgent(title, description, location){
+  const system = `You are the Planner Agent inside ProofFlow AI, a proof-of-work verification system. Given a real-world task, decompose it into a short list of concrete, visually verifiable requirements that a photo of the finished work could be checked against.
+
+Rules:
+- Return ONLY valid JSON, no prose, no markdown fences.
+- Schema: {"task": string, "requirements": [{"id": string (short snake_case), "description": string, "type": "object_count"|"object_presence"|"visual_condition", "expected": number (ONLY for object_count, omit otherwise)}]}
+- Produce between 4 and 7 requirements.
+- Requirements must be things that are actually checkable by looking at a single photo.
+- Be specific to the task given, not generic filler.`;
+  const userContent = `Task title: ${title}\nDescription: ${description || '(none provided)'}\nLocation: ${location || '(none provided)'}\n\nGenerate the verification requirements JSON now.`;
+  const text = await callClaude(userContent, system, 900);
+  const json = extractJSON(text);
+  if(!json.requirements || !Array.isArray(json.requirements) || json.requirements.length===0){
+    throw new Error("Planner Agent returned an invalid schema (missing requirements array)");
+  }
+  json.requirements = json.requirements.map((r,i)=>({
+    id: (r.id || ('req_'+i)).toString().toLowerCase().replace(/[^a-z0-9_]/g,'_'),
+    description: r.description || 'Unnamed requirement',
+    type: ['object_count','object_presence','visual_condition'].includes(r.type) ? r.type : 'visual_condition',
+    expected: r.type==='object_count' ? (Number(r.expected)||1) : undefined
+  }));
+  return json.requirements;
+}
+
+/* ============================= AGENT 3 — VISION ============================= */
+async function visionAgent(base64Data, mediaType, requirements){
+  const reqList = requirements.map(r=>`- id:"${r.id}" | ${r.description} | type:${r.type}${r.type==='object_count' ? ' | expected:'+r.expected : ''}`).join('\n');
+  const system = `You are the Vision Agent inside ProofFlow AI. You inspect a single photo of real-world work and evaluate it strictly against a list of requirements.
+
+Rules:
+- Only report what is actually visible in the image. Never invent objects that cannot be reasonably identified.
+- For "object_count" requirements, give your best visual count as an integer.
+- For "object_presence" and "visual_condition" requirements, judge status as "passed", "partial", or "failed".
+- Give an honest confidence value between 0 and 1 for every requirement.
+- Return ONLY valid JSON, no prose, no markdown fences.
+- Schema: {"requirements":[{"id": string, "detected": number|boolean, "status": "passed"|"partial"|"failed", "confidence": number, "reason": string}]}
+- "reason" must be one short sentence describing exactly what you observed.`;
+  const content = [
+    { type:"image", source:{ type:"base64", media_type: mediaType, data: base64Data } },
+    { type:"text", text: `Requirements to check:\n${reqList}\n\nAnalyze the image and return the JSON result now.` }
+  ];
+  const text = await callClaude(content, system, 1200);
+  const json = extractJSON(text);
+  if(!json.requirements || !Array.isArray(json.requirements)) throw new Error("Vision Agent returned an invalid schema");
+  return json.requirements;
+}
+
+/* ============================= AGENT 6 — RECOVERY ============================= */
+async function recoveryAgent(taskTitle, failedReqs){
+  const system = `You are the Recovery Agent inside ProofFlow AI. Given a task and the requirements that failed or were only partially met, write ONE concise, actionable corrective instruction (2-3 sentences max) telling the person exactly what to fix before resubmitting evidence. Be specific and use the numbers given. Return plain text only, no JSON, no markdown.`;
+  const list = failedReqs.map(r=>`- ${r.description} (status: ${r.status}${r.detected!==undefined ? ', detected: '+r.detected : ''}${r.expected!==undefined ? ', expected: '+r.expected : ''}) — ${r.reason||''}`).join('\n');
+  const userContent = `Task: ${taskTitle}\n\nUnresolved requirements:\n${list}\n\nWrite the corrective action now.`;
+  const text = await callClaude(userContent, system, 300);
+  return text.trim();
+}
+
+/* ============================= AGENT 8 — VERIFICATION (deterministic, transparent) ============================= */
+function verificationAgent(requirements, visionResults){
+  const byId = {}; visionResults.forEach(v=>byId[v.id]=v);
+  const merged = requirements.map(req=>{
+    const v = byId[req.id] || { status:'failed', confidence:0, reason:'Not evaluated by Vision Agent.', detected:undefined };
+    let reqScore = 0;
+    if(req.type === 'object_count'){
+      const detected = Number(v.detected)||0;
+      const ratio = req.expected>0 ? Math.min(detected/req.expected, 1) : 0;
+      reqScore = ratio*100;
+      v.status = detected>=req.expected ? 'passed' : (detected>0 ? 'partial' : 'failed');
+    } else {
+      reqScore = v.status==='passed' ? 100 : (v.status==='partial' ? 50 : 0);
+    }
+    return { ...req, ...v, reqScore };
+  });
+  const score = Math.round(merged.reduce((s,r)=>s+r.reqScore,0) / merged.length);
+  const confidence = Math.round((merged.reduce((s,r)=>s+(Number(r.confidence)||0),0) / merged.length)*100);
+  let status = 'REJECTED';
+  if(score>=95) status='VERIFIED';
+  else if(score>=45) status='PARTIALLY_VERIFIED';
+  const passed = merged.filter(r=>r.status==='passed');
+  const failed = merged.filter(r=>r.status!=='passed');
+  const explanation = failed.length===0
+    ? `All ${merged.length} requirements were met based on the submitted evidence.`
+    : `${passed.length} of ${merged.length} requirements were fully met. ` + failed.map(r=>{
+        if(r.type==='object_count') return `${r.description}: detected ${r.detected!==undefined?r.detected:'0'} of ${r.expected} required.`;
+        return `${r.description}: ${r.reason || (r.status==='partial'?'partially satisfied.':'not satisfied.')}`;
+      }).join(' ');
+  return { merged, score, confidence, status, passed, failed, explanation };
+}
+
+/* ============================= DEMO EVIDENCE GENERATOR (synthetic, real pixels for real vision analysis) ============================= */
+function renderLabCanvas(computerCount, whiteboardPresent=true, projectorPresent=true, tablesClear=true){
+  const canvas = document.createElement('canvas');
+  canvas.width = 900; canvas.height = 560;
+  const ctx = canvas.getContext('2d');
+  // floor
+  ctx.fillStyle = '#EDE9DD'; ctx.fillRect(0,0,900,560);
+  ctx.strokeStyle = '#D8D2BF'; ctx.lineWidth=1;
+  for(let x=0;x<900;x+=30){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,560); ctx.stroke(); }
+  // back wall band
+  ctx.fillStyle = '#E3DFD0'; ctx.fillRect(0,0,900,70);
+  // whiteboard
+  if(whiteboardPresent){
+    ctx.fillStyle = '#FFFFFF'; ctx.strokeStyle='#9C9683'; ctx.lineWidth=3;
+    ctx.fillRect(40,14,150,44); ctx.strokeRect(40,14,150,44);
+    ctx.strokeStyle='#B8C3D9'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(55,30); ctx.lineTo(150,30); ctx.moveTo(55,42); ctx.lineTo(130,42); ctx.stroke();
+  }
+  // projector (ceiling mounted, top center)
+  if(projectorPresent){
+    ctx.fillStyle = '#3A3F4B';
+    ctx.fillRect(430,10,60,22);
+    ctx.beginPath(); ctx.moveTo(440,32); ctx.lineTo(480,32); ctx.lineTo(500,60); ctx.lineTo(420,60); ctx.closePath();
+    ctx.fillStyle='rgba(58,63,75,0.12)'; ctx.fill();
+    ctx.fillStyle='#3A3F4B'; ctx.fillRect(430,10,60,22);
+    ctx.fillStyle='#8FA5D6'; ctx.fillRect(452,15,16,10);
+  }
+  // tables + computers grid
+  const cols = 5, rows = 4;
+  const startX = 90, startY = 130, gapX = 155, gapY = 100;
+  let placed = 0;
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      if(placed>=computerCount) break;
+      const x = startX + c*gapX, y = startY + r*gapY;
+      // table
+      ctx.fillStyle = tablesClear ? '#C9A66B' : '#C9A66B';
+      ctx.fillRect(x-6,y+34,118,14);
+      ctx.strokeStyle='#A9875099'; ctx.strokeRect(x-6,y+34,118,14);
+      if(!tablesClear){
+        ctx.fillStyle='#D0483F'; ctx.fillRect(x+70,y+24,14,10); // clutter item
+      }
+      // monitor
+      ctx.fillStyle = '#23262E'; ctx.fillRect(x,y,74,44);
+      ctx.fillStyle = '#5EA8E0'; ctx.fillRect(x+5,y+5,64,32);
+      ctx.fillStyle = '#23262E'; ctx.fillRect(x+30,y+44,14,8);
+      ctx.fillRect(x+16,y+52,42,5);
+      // chair
+      ctx.fillStyle = '#8B6F4E';
+      ctx.beginPath(); ctx.roundRect(x+22,y+66,34,26,5); ctx.fill();
+      placed++;
+    }
+  }
+  return canvas.toDataURL('image/png');
+}
+function dataUrlToBase64(dataUrl){ return dataUrl.split(',')[1]; }
+
+async function downscaleForStorage(dataUrl, maxW=260){
+  return new Promise((resolve)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const scale = Math.min(1, maxW/img.width);
+      const c = document.createElement('canvas');
+      c.width = img.width*scale; c.height = img.height*scale;
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      resolve(c.toDataURL('image/jpeg',0.7));
+    };
+    img.onerror = ()=>resolve(null);
+    img.src = dataUrl;
+  });
+}
+
+/* ============================= ORCHESTRATOR ============================= */
+async function runVerificationPipeline(task, imageDataUrl, mediaType, onEvent){
+  const events = [];
+  const push = (agent, type, message)=>{ const e={agent,type,message,ts:Date.now()}; events.push(e); onEvent(e); };
+
+  push('Evidence Agent','done', `Evidence received. ${task.requirements.length} requirement(s) require image evidence.`);
+
+  let visionResults;
+  let fellBack = false;
+  try{
+    push('Vision Agent','running','Analyzing uploaded evidence against requirements\u2026');
+    const base64 = dataUrlToBase64(imageDataUrl);
+    visionResults = await visionAgent(base64, mediaType, task.requirements);
+    push('Vision Agent','done', `Evidence analyzed \u2014 ${visionResults.length} requirement(s) evaluated.`);
+  }catch(err){
+    fellBack = true;
+    push('Vision Agent','fail', 'AI vision request failed \u2014 '+err.message+'. Falling back to a neutral result.');
+    visionResults = task.requirements.map(r=>({ id:r.id, detected: r.type==='object_count'?0:false, status:'failed', confidence:0, reason:'AI analysis unavailable in this session.' }));
+  }
+
+  const attemptNumber = (task.attempts?.length||0)+1;
+  push('Context Agent','done', `Attempt #${attemptNumber} \u00b7 ${new Date().toLocaleString()} \u00b7 task "${task.title}"`);
+
+  push('Verification Agent','running','Calculating completion status from a transparent weighted pass-rate across all requirements\u2026');
+  const result = verificationAgent(task.requirements, visionResults);
+  push('Verification Agent','done', `${result.status.replace('_',' ')} \u2014 ${result.score}% (avg. of ${task.requirements.length} requirement scores)`);
+
+  let recoveryAction = null;
+  if(result.status !== 'VERIFIED'){
+    try{
+      push('Recovery Agent','running','Generating corrective action for unresolved requirements\u2026');
+      recoveryAction = await recoveryAgent(task.title, result.failed);
+      push('Recovery Agent','warn', 'Corrective action generated.');
+    }catch(err){
+      recoveryAction = `Resolve the following before resubmitting: ${result.failed.map(f=>f.description).join('; ')}.`;
+      push('Recovery Agent','warn', 'AI recovery request failed, generated a rule-based action instead.');
+    }
+  } else {
+    push('Recovery Agent','done', 'No corrective action needed \u2014 all requirements met.');
+  }
+
+  const thumb = await downscaleForStorage(imageDataUrl);
+  const attempt = {
+    id: uid('att'),
+    attemptNumber,
+    thumb,
+    timestamp: Date.now(),
+    requirementResults: result.merged.map(r=>({ id:r.id, description:r.description, type:r.type, expected:r.expected, detected:r.detected, status:r.status, confidence:r.confidence, reason:r.reason })),
+    status: result.status,
+    score: result.score,
+    confidence: result.confidence,
+    explanation: result.explanation,
+    recoveryAction,
+    fellBack,
+    events
+  };
+  return attempt;
+}
+
+/* ============================= RENDER: SHELL ============================= */
+function setActiveNav(){
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active', b.dataset.view===VIEW || (VIEW==='task' && b.dataset.view==='tasks')));
+}
+document.getElementById('nav').addEventListener('click', (e)=>{
+  const btn = e.target.closest('.nav-item'); if(!btn) return;
+  navigate(btn.dataset.view);
+});
+async function navigate(view, taskId){
+  VIEW = view;
+  if(view==='task' && taskId){ CURRENT_TASK = await loadTask(taskId); }
+  if(view==='create'){ DRAFT_REQS = []; }
+  setActiveNav();
+  render();
+}
+
+function fmtDate(ts){ if(!ts) return ''; const d=new Date(ts); return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' \u00b7 '+d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}); }
+function statusLabel(s){ return ({ACTIVE:'Active', VERIFIED:'Verified', PARTIALLY_VERIFIED:'Partial', REJECTED:'Rejected'})[s] || s; }
+
+/* ============================= RENDER: DASHBOARD ============================= */
+function renderDashboard(){
+  const total = INDEX.length;
+  const verified = INDEX.filter(t=>t.status==='VERIFIED').length;
+  const partial = INDEX.filter(t=>t.status==='PARTIALLY_VERIFIED').length;
+  const active = INDEX.filter(t=>t.status==='ACTIVE').length;
+  const rate = total ? Math.round((verified/total)*100) : 0;
+
+  const recent = [...INDEX].sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,8);
+
+  const rows = recent.map(t=>`
+    <div class="task-row" data-open="${t.id}">
+      <div>
+        <div class="task-title">${escapeHtml(t.title)}${t.isDemo?'<span class="demo-chip">Demo</span>':''}</div>
+        <div class="task-meta">${escapeHtml(t.location||'No location set')} \u00b7 updated ${fmtDate(t.updatedAt)}</div>
+      </div>
+      <div class="spacer"></div>
+      ${t.score!=null ? `<span class="score-mono">${t.score}%</span>` : ''}
+      <span class="badge status-${t.status}"><span class="badge-dot"></span>${statusLabel(t.status)}</span>
+    </div>`).join('');
+
+  document.getElementById('main').innerHTML = `
+    <div class="topline">
+      <div>
+        <div class="eyebrow">ProofFlow AI \u00b7 Verification Layer</div>
+        <h1 class="page-title">Good to see you.</h1>
+        <div class="page-sub">Don't just mark work complete. Prove it. Real-world tasks, verified against real evidence by a multi-agent AI pipeline.</div>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-ghost" id="btn-demo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg>Load Demo Task</button>
+        <button class="btn btn-accent" id="btn-new-task"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Create Task</button>
+      </div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="card stat-card"><div class="stat-label">Active Tasks</div><div class="stat-value">${active}</div><div class="stat-bar"><div style="width:${total?active/total*100:0}%; background:var(--accent);"></div></div></div>
+      <div class="card stat-card"><div class="stat-label">Verified</div><div class="stat-value">${verified}</div><div class="stat-bar"><div style="width:${total?verified/total*100:0}%; background:var(--verified);"></div></div></div>
+      <div class="card stat-card"><div class="stat-label">Needs Attention</div><div class="stat-value">${partial+INDEX.filter(t=>t.status==='REJECTED').length}</div><div class="stat-bar"><div style="width:${total?(partial+INDEX.filter(t=>t.status==='REJECTED').length)/total*100:0}%; background:var(--partial);"></div></div></div>
+      <div class="card stat-card"><div class="stat-label">Verification Rate</div><div class="stat-value">${rate}%</div><div class="stat-bar"><div style="width:${rate}%; background:var(--ink);"></div></div></div>
+    </div>
+
+    <div class="section-head"><h2>Recent Tasks</h2>${total>8?`<button class="link-btn" data-view="tasks">View all \u2192</button>`:''}</div>
+    <div class="card">
+      ${ recent.length ? rows : `<div class="empty">${ICON.empty}<div class="empty-title">No tasks yet</div><div class="empty-sub">Create your first task, or load the Computer Lab demo to see the full verify \u2192 correct \u2192 re-verify loop.</div></div>` }
+    </div>
+  `;
+  document.getElementById('btn-new-task').onclick = ()=>navigate('create');
+  document.getElementById('btn-demo').onclick = createDemoTask;
+  document.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>navigate('task', el.dataset.open));
+  const viewAll = document.querySelector('[data-view="tasks"].link-btn'); if(viewAll) viewAll.onclick=()=>navigate('tasks');
+}
+
+/* ============================= RENDER: TASKS LIST ============================= */
+function renderTasksList(){
+  const rows = [...INDEX].sort((a,b)=>b.updatedAt-a.updatedAt).map(t=>`
+    <div class="task-row" data-open="${t.id}">
+      <div>
+        <div class="task-title">${escapeHtml(t.title)}${t.isDemo?'<span class="demo-chip">Demo</span>':''}</div>
+        <div class="task-meta">${escapeHtml(t.location||'No location set')} \u00b7 updated ${fmtDate(t.updatedAt)}</div>
+      </div>
+      <div class="spacer"></div>
+      ${t.score!=null ? `<span class="score-mono">${t.score}%</span>` : ''}
+      <span class="badge status-${t.status}"><span class="badge-dot"></span>${statusLabel(t.status)}</span>
+    </div>`).join('');
+  document.getElementById('main').innerHTML = `
+    <div class="topline">
+      <div><div class="eyebrow">All Tasks</div><h1 class="page-title">Tasks</h1></div>
+      <button class="btn btn-accent" id="btn-new-task"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Create Task</button>
+    </div>
+    <div class="card">${INDEX.length ? rows : `<div class="empty">${ICON.empty}<div class="empty-title">No tasks yet</div><div class="empty-sub">Create a task to generate AI verification criteria.</div></div>`}</div>
+  `;
+  document.getElementById('btn-new-task').onclick = ()=>navigate('create');
+  document.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>navigate('task', el.dataset.open));
+}
+
+/* ============================= RENDER: CREATE TASK ============================= */
+function renderCreate(){
+  document.getElementById('main').innerHTML = `
+    <div class="topline">
+      <div><div class="eyebrow">New Task</div><h1 class="page-title">Create a task</h1><div class="page-sub">Describe the real-world work. The Planner Agent will turn it into measurable, photo-checkable requirements.</div></div>
+    </div>
+    <div class="two-col">
+      <div class="card pad">
+        <div class="field"><label>Task title</label><input id="f-title" placeholder="e.g. Prepare Computer Lab 3 for tomorrow's workshop" /></div>
+        <div class="field"><label>Description</label><textarea id="f-desc" placeholder="Any extra detail that helps define what 'done' looks like\u2026"></textarea></div>
+        <div class="field-row">
+          <div class="field"><label>Location</label><input id="f-loc" placeholder="e.g. Building B, Room 3" /></div>
+          <div class="field"><label>Deadline</label><input id="f-deadline" type="date" /></div>
+        </div>
+        <div id="err-slot"></div>
+        <button class="btn btn-accent" id="btn-generate">${ICON.spark}Generate Verification Criteria</button>
+      </div>
+      <div class="card pad">
+        <div style="font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); margin-bottom:12px;">Planner Agent output</div>
+        <div id="req-slot">
+          <div class="empty" style="padding:26px 10px;">${ICON.spark}<div class="empty-title">No requirements yet</div><div class="empty-sub">Fill in the task and click Generate to see AI-produced verification criteria here. You can edit or remove any before creating the task.</div></div>
+        </div>
+        <button class="btn btn-primary hidden" id="btn-create-task" style="margin-top:14px; width:100%; justify-content:center;">${ICON.check}Create Task</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('btn-generate').onclick = onGenerateRequirements;
+}
+
+function reqCardHtml(r, i){
+  const typeLabel = ({object_count:'Object Count', object_presence:'Presence', visual_condition:'Condition'})[r.type];
+  return `<div class="req-card" data-idx="${i}">
+    <div style="flex:1;">
+      <span class="req-type">${typeLabel}${r.type==='object_count'?' \u00b7 expects '+r.expected:''}</span>
+      <div class="req-desc" contenteditable="true" data-field="description">${escapeHtml(r.description)}</div>
+    </div>
+    <button class="req-remove" data-remove="${i}">${ICON.x}</button>
+  </div>`;
+}
+function renderReqSlot(){
+  const slot = document.getElementById('req-slot');
+  if(!slot) return;
+  if(!DRAFT_REQS.length){
+    slot.innerHTML = `<div class="empty" style="padding:26px 10px;">${ICON.spark}<div class="empty-title">No requirements yet</div><div class="empty-sub">Fill in the task and click Generate to see AI-produced verification criteria here.</div></div>`;
+    document.getElementById('btn-create-task').classList.add('hidden');
+    return;
+  }
+  slot.innerHTML = DRAFT_REQS.map(reqCardHtml).join('');
+  slot.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{ DRAFT_REQS.splice(Number(b.dataset.remove),1); renderReqSlot(); });
+  slot.querySelectorAll('[contenteditable]').forEach((el,i)=>el.oninput=()=>{ DRAFT_REQS[i].description = el.textContent; });
+  document.getElementById('btn-create-task').classList.remove('hidden');
+}
+
+async function onGenerateRequirements(){
+  const title = document.getElementById('f-title').value.trim();
+  const desc = document.getElementById('f-desc').value.trim();
+  const loc = document.getElementById('f-loc').value.trim();
+  const errSlot = document.getElementById('err-slot');
+  errSlot.innerHTML = '';
+  if(!title){ errSlot.innerHTML = bannerError('Give the task a title first.'); return; }
+  const btn = document.getElementById('btn-generate');
+  btn.disabled = true; btn.innerHTML = `<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-3-6.7"/></svg>Planner Agent working\u2026`;
+  try{
+    DRAFT_REQS = await plannerAgent(title, desc, loc);
+    renderReqSlot();
+  }catch(err){
+    errSlot.innerHTML = bannerError('Planner Agent failed: '+err.message);
+  }finally{
+    btn.disabled = false; btn.innerHTML = `${ICON.spark}Generate Verification Criteria`;
+    const createBtn = document.getElementById('btn-create-task');
+    if(createBtn) createBtn.onclick = onCreateTask;
+  }
+}
+function bannerError(msg){ return `<div class="banner banner-error">${ICON.alert}${escapeHtml(msg)}</div>`; }
+
+async function onCreateTask(){
+  const title = document.getElementById('f-title').value.trim();
+  const desc = document.getElementById('f-desc').value.trim();
+  const loc = document.getElementById('f-loc').value.trim();
+  const deadline = document.getElementById('f-deadline').value;
+  const task = {
+    id: uid('task'), title, description:desc, location:loc, deadline,
+    createdAt: Date.now(), requirements: DRAFT_REQS, status:'ACTIVE', score:null, attempts:[], isDemo:false
+  };
+  await saveTask(task);
+  await loadIndex();
+  navigate('task', task.id);
+}
+
+/* ============================= RENDER: TASK DETAIL ============================= */
+function reqTypeChip(r){ return ({object_count:'Object Count', object_presence:'Presence', visual_condition:'Condition'})[r.type]; }
+
+function renderTaskDetail(){
+  const t = CURRENT_TASK;
+  if(!t){ document.getElementById('main').innerHTML = `<div class="empty">${ICON.empty}<div class="empty-title">Task not found</div></div>`; return; }
+  const lastAttempt = t.attempts[t.attempts.length-1];
+
+  const reqRows = t.requirements.map(r=>`
+    <div class="req-card">
+      <div style="flex:1;">
+        <span class="req-type">${reqTypeChip(r)}${r.type==='object_count'?' \u00b7 expects '+r.expected:''}</span>
+        <div class="req-desc">${escapeHtml(r.description)}</div>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('main').innerHTML = `
+    <div class="topline">
+      <div>
+        <div class="eyebrow"><button class="link-btn" id="back-btn">\u2190 All Tasks</button></div>
+        <h1 class="page-title">${escapeHtml(t.title)}${t.isDemo?'<span class="demo-chip">Demo</span>':''}</h1>
+        <div class="page-sub">${escapeHtml(t.location||'No location set')}${t.deadline ? ' \u00b7 due '+t.deadline : ''}</div>
+      </div>
+      <span class="badge status-${t.status}" style="font-size:12.5px; padding:7px 14px;"><span class="badge-dot"></span>${statusLabel(t.status)}${t.score!=null?' \u00b7 '+t.score+'%':''}</span>
+    </div>
+
+    <div class="two-col">
+      <div>
+        <div class="card pad" style="margin-bottom:20px;">
+          <div style="font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); margin-bottom:12px;">Verification Requirements</div>
+          ${reqRows}
+        </div>
+
+        <div id="result-slot">${lastAttempt ? resultCardHtml(lastAttempt) : ''}</div>
+
+        <div class="card pad" style="margin-top:20px;">
+          <div style="font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); margin-bottom:12px;">Submit Evidence</div>
+          <div id="upload-err"></div>
+          ${t.isDemo ? `
+            <div style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+              <button class="btn btn-ghost" id="btn-demo-a">Use Demo Evidence A (incomplete)</button>
+              <button class="btn btn-ghost" id="btn-demo-b">Use Demo Evidence B (complete)</button>
+            </div>` : ''}
+          <div class="dropzone" id="dropzone">
+            ${ICON.upload}
+            <div class="dz-title">Drag & drop a photo, or click to upload</div>
+            <div class="dz-sub">JPG or PNG, up to 8MB</div>
+            <input type="file" id="file-input" accept="image/png,image/jpeg" class="hidden" />
+          </div>
+          <div id="preview-slot"></div>
+          <button class="btn btn-accent hidden" id="btn-verify" style="margin-top:14px; width:100%; justify-content:center;">${ICON.spark}Run Verification</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="card pad" style="margin-bottom:20px;">
+          <div style="font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); margin-bottom:10px;">ProofFlow Agent Activity</div>
+          <div class="agent-list" id="agent-activity">
+            ${lastAttempt ? lastAttempt.events.map(agentRowHtml).join('') : `<div class="empty" style="padding:20px 6px;">${ICON.clock}<div class="empty-sub">Agent activity will appear here once you run a verification.</div></div>`}
+          </div>
+        </div>
+        <div class="card pad">
+          <div style="font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); margin-bottom:12px;">Verification History</div>
+          <div id="history-slot">${historyHtml(t.attempts)}</div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('back-btn').onclick = ()=>navigate('tasks');
+  wireEvidenceUpload();
+  if(t.isDemo){
+    document.getElementById('btn-demo-a').onclick = ()=>useDemoEvidence('incomplete');
+    document.getElementById('btn-demo-b').onclick = ()=>useDemoEvidence('complete');
+  }
+}
+
+function agentRowHtml(e){
+  const iconMap = { done: ICON.check, warn: ICON.alert, fail: ICON.x, running: '<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 12a9 9 0 11-3-6.7"/></svg>' };
+  const cls = e.type;
+  return `<div class="agent-item">
+    <div class="agent-icon ${cls}">${iconMap[e.type]||ICON.dash}</div>
+    <div><div class="agent-name">${escapeHtml(e.agent)}</div><div class="agent-msg">${escapeHtml(e.message)}</div></div>
+  </div>`;
+}
+
+function reqResultRow(r){
+  const cls = r.status==='passed'?'pass':(r.status==='partial'?'partial':'fail');
+  const icon = r.status==='passed'?ICON.check:(r.status==='partial'?ICON.dash:ICON.x);
+  const detail = r.type==='object_count' ? `${r.detected!=null?r.detected:'0'}/${r.expected}` : (r.confidence!=null ? Math.round(r.confidence*100)+'%' : '');
+  return `<div class="req-result ${cls}">${icon}<span>${escapeHtml(r.description)}</span><span class="rr-detail">${detail}</span></div>`;
+}
+
+function resultCardHtml(attempt){
+  const s = attempt.status;
+  const statusText = s==='VERIFIED' ? 'VERIFIED' : (s==='PARTIALLY_VERIFIED' ? 'PARTIALLY VERIFIED' : 'REJECTED');
+  return `<div class="card result-card">
+    ${attempt.fellBack ? `<div class="banner banner-error">${ICON.alert}AI vision request failed for this attempt \u2014 result shown is a neutral fallback, not a real analysis.</div>` : ''}
+    <div class="result-top">
+      <div class="stamp ${s}"><div class="stamp-status">${statusText}</div><div class="stamp-score">${attempt.score}%</div></div>
+      <div class="req-result-list">${attempt.requirementResults.map(reqResultRow).join('')}</div>
+    </div>
+    <div class="confidence-line">AI confidence: ${attempt.confidence}% \u00b7 attempt #${attempt.attemptNumber} \u00b7 ${fmtDate(attempt.timestamp)}</div>
+    <div class="explain-box">
+      <h4>AI Explanation</h4>
+      <p>${escapeHtml(attempt.explanation)}</p>
+    </div>
+    ${attempt.recoveryAction ? `<div class="recovery-box"><h4>Recommended Action</h4><p>${escapeHtml(attempt.recoveryAction)}</p></div>` : ''}
+  </div>`;
+}
+
+function historyHtml(attempts){
+  if(!attempts.length) return `<div class="empty" style="padding:20px 6px;">${ICON.empty}<div class="empty-sub">No verification attempts yet.</div></div>`;
+  return `<div class="timeline">${attempts.map(a=>{
+    const cls = a.status==='VERIFIED'?'verified':(a.status==='PARTIALLY_VERIFIED'?'partial':'rejected');
+    const color = a.status==='VERIFIED'?'var(--verified)':(a.status==='PARTIALLY_VERIFIED'?'var(--partial)':'var(--rejected)');
+    const icon = a.status==='VERIFIED'?ICON.check:(a.status==='PARTIALLY_VERIFIED'?ICON.dash:ICON.x);
+    return `<div class="tl-item">
+      <div class="tl-dot" style="background:${color}; color:#fff;">${icon}</div>
+      <div class="tl-head">Attempt #${a.attemptNumber} <span class="score-mono" style="color:${color};">${a.score}%</span></div>
+      <div class="tl-body">${statusLabel(a.status)} \u00b7 ${fmtDate(a.timestamp)}</div>
+      ${a.recoveryAction ? `<div class="tl-recovery">${escapeHtml(a.recoveryAction)}</div>` : ''}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+/* ---------- evidence upload wiring ---------- */
+let PENDING_IMAGE = null; // {dataUrl, mediaType}
+function wireEvidenceUpload(){
+  const dz = document.getElementById('dropzone');
+  const fileInput = document.getElementById('file-input');
+  dz.onclick = ()=>fileInput.click();
+  dz.ondragover = (e)=>{ e.preventDefault(); dz.classList.add('drag'); };
+  dz.ondragleave = ()=>dz.classList.remove('drag');
+  dz.ondrop = (e)=>{ e.preventDefault(); dz.classList.remove('drag'); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); };
+  fileInput.onchange = ()=>{ if(fileInput.files[0]) handleFile(fileInput.files[0]); };
+}
+function handleFile(file){
+  const errSlot = document.getElementById('upload-err');
+  errSlot.innerHTML = '';
+  if(!['image/png','image/jpeg'].includes(file.type)){ errSlot.innerHTML = bannerError('Unsupported file type. Please upload a JPG or PNG image.'); return; }
+  if(file.size > 8*1024*1024){ errSlot.innerHTML = bannerError('Image is too large. Please upload something under 8MB.'); return; }
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    PENDING_IMAGE = { dataUrl: reader.result, mediaType: file.type };
+    showPreview(reader.result);
+  };
+  reader.onerror = ()=>{ errSlot.innerHTML = bannerError('Could not read that file. Try a different image.'); };
+  reader.readAsDataURL(file);
+}
+function useDemoEvidence(state){
+  const dataUrl = state==='incomplete' ? renderLabCanvas(18,true,true,true) : renderLabCanvas(20,true,true,true);
+  PENDING_IMAGE = { dataUrl, mediaType:'image/png' };
+  showPreview(dataUrl);
+}
+function showPreview(dataUrl){
+  document.getElementById('preview-slot').innerHTML = `<div class="evidence-preview"><img src="${dataUrl}"/><div><div style="font-weight:600; font-size:13px;">Evidence ready</div><div style="font-size:12px; color:var(--ink-soft);">Click "Run Verification" to start the AI pipeline.</div></div></div>`;
+  document.getElementById('btn-verify').classList.remove('hidden');
+  document.getElementById('btn-verify').onclick = onRunVerification;
+}
+
+async function onRunVerification(){
+  if(!PENDING_IMAGE) return;
+  const t = CURRENT_TASK;
+  const btn = document.getElementById('btn-verify');
+  btn.disabled = true; btn.innerHTML = `<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-3-6.7"/></svg>Running ProofFlow Agents\u2026`;
+
+  const activityEl = document.getElementById('agent-activity');
+  activityEl.innerHTML = `<div class="agent-item"><div class="agent-icon running"><svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 12a9 9 0 11-3-6.7"/></svg></div><div><div class="agent-name">Starting pipeline\u2026</div></div></div>`;
+  let rendered = [];
+  const onEvent = (e)=>{ rendered.push(e); activityEl.innerHTML = rendered.map(agentRowHtml).join(''); };
+
+  try{
+    const attempt = await runVerificationPipeline(t, PENDING_IMAGE.dataUrl, PENDING_IMAGE.mediaType, onEvent);
+    t.attempts.push(attempt);
+    t.status = attempt.status;
+    t.score = attempt.score;
+    await saveTask(t);
+    await loadIndex();
+    CURRENT_TASK = t;
+    PENDING_IMAGE = null;
+    renderTaskDetail();
+  }catch(err){
+    document.getElementById('upload-err').innerHTML = bannerError('Verification pipeline failed: '+err.message);
+    btn.disabled=false; btn.innerHTML = `${ICON.spark}Run Verification`;
+  }
+}
+
+/* ============================= DEMO TASK BOOTSTRAP ============================= */
+async function createDemoTask(){
+  const task = {
+    id: uid('task'),
+    title: "Prepare Computer Lab 3 for tomorrow's workshop",
+    description: "Set up the lab so it's ready for a full-day workshop: all workstations powered and arranged, presentation equipment ready, and the room tidy.",
+    location: "Building B, Room 3",
+    deadline: '',
+    createdAt: Date.now(),
+    requirements: [
+      { id:'computers', description:'20 computers should be present and arranged at workstations', type:'object_count', expected:20 },
+      { id:'projector', description:'Projector should be present and mounted', type:'object_presence' },
+      { id:'chairs', description:'Chairs should be arranged at each workstation', type:'visual_condition' },
+      { id:'tables', description:'Tables should be clear of clutter', type:'visual_condition' },
+      { id:'whiteboard', description:'Whiteboard should be present and clean', type:'object_presence' }
+    ],
+    status:'ACTIVE', score:null, attempts:[], isDemo:true
+  };
+  await saveTask(task);
+  await loadIndex();
+  navigate('task', task.id);
+}
+
+/* ============================= UTIL ============================= */
+function escapeHtml(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ============================= ROOT RENDER ============================= */
+function render(){
+  if(VIEW==='dashboard') renderDashboard();
+  else if(VIEW==='create') renderCreate();
+  else if(VIEW==='tasks') renderTasksList();
+  else if(VIEW==='task') renderTaskDetail();
+}
+
+(async function init(){
+  await loadIndex();
+  setActiveNav();
+  render();
+})();
+</script>
+</body>
+</html>
